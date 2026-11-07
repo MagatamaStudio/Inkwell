@@ -2,6 +2,22 @@
 
 所有值得记录的改动。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [1.2.0] - 2026-11-08
+
+### 新增
+
+- **模组图标**：日式神话风格（朱日 + 鸟居 + 墨水瓶 + 朱印），源文件 `art/icon.svg`，
+  用 Edge 无头模式渲染成 512px 再缩到 128px 的 `assets/inkwell/icon.png`
+- **签名快捷入口**：书页右侧新增「签名…」按钮，直接打开原版签名界面
+- **中键粘贴**：书与笔界面里按鼠标中键即可把剪贴板写进书里，
+  给「中文输入法吞掉 Ctrl+V」的情况留一条不依赖键盘的路（`MouseHandlerMixin`）
+- **英文 README**：`README.en.md` 与 `docs/format.md`，中文版顶部有互链
+- `Inkwell.currentScreen()`：26.3 没有公开的 `screen` 字段，反射找一次缓存
+
+### 变更
+
+- 剪贴板/文件导入逻辑抽到 `Actions`，键盘、按钮、鼠标共用
+
 ## [1.1.1] - 2026-11-08
 
 ### 修复

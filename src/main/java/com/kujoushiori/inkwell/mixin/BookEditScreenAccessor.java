@@ -8,6 +8,7 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 
 import net.minecraft.client.gui.components.MultiLineEditBox;
 import net.minecraft.client.gui.screens.inventory.BookEditScreen;
+import net.minecraft.client.gui.screens.inventory.BookSignScreen;
 
 /** BookEditScreen 的私有字段/方法访问器（mixin 接口，任何类都能用）。 */
 @Mixin(BookEditScreen.class)
@@ -23,6 +24,9 @@ public interface BookEditScreenAccessor {
 
     @Accessor("page")
     MultiLineEditBox inkwellPage();
+
+    @Accessor("signScreen")
+    BookSignScreen inkwellSignScreen();
 
     @Invoker("updatePageContent")
     void inkwellUpdatePageContent();

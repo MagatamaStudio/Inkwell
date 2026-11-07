@@ -11,9 +11,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import com.kujoushiori.inkwell.Actions;
 import com.kujoushiori.inkwell.Inkwell;
 import com.kujoushiori.inkwell.InkwellConfig;
-import com.kujoushiori.inkwell.BookWriter;
+import com.kujoushiori.inkwell.PageJumpScreen;
+import com.kujoushiori.inkwell.SettingsScreen;
 import com.kujoushiori.inkwell.TextLibraryScreen;
 
 import net.minecraft.client.Minecraft;
@@ -26,8 +28,9 @@ import net.minecraft.network.chat.Component;
 
 /**
  * 书与笔界面：
- *   1) 右侧三个按钮：文本库（选 txt + 预览）/ 粘贴剪贴板 / 导入 book.txt
+ *   1) 右侧按钮：文本库 / 粘贴剪贴板 / 跳转页码 / 设置 / 签名
  *   2) 快捷键：Ctrl+V、Ctrl+Shift+V、Ctrl+Alt+V
+ *   3) 中键粘贴（输入法吞掉 Ctrl+V 时的备用路径，见 MouseHandlerMixin）
  */
 @Mixin(BookEditScreen.class)
 public abstract class BookEditScreenMixin {
@@ -45,7 +48,8 @@ public abstract class BookEditScreenMixin {
     @Inject(method = "init", at = @At("TAIL"))
     private void inkwellAddButtons(CallbackInfo ci) {
         try {
-            BookEditScreenAccessor acc = (BookEditScreenAccessor) (Object) this;
+            BookEditScreen this0 = (BookEditScreen) (Object) this;
+            BookEditScreenAccessor acc = (BookEditScreenAccessor) this0;
             int w = Minecraft.getInstance().getWindow().getGuiScaledWidth();
             int bl = acc.inkwellBackgroundLeft();
             int bt = acc.inkwellBackgroundTop();
@@ -59,17 +63,25 @@ public abstract class BookEditScreenMixin {
             }
             int y = Math.max(4, bt);
 
-            addButton(x, y, "文本库 / 预览", b -> Minecraft.getInstance().setScreenAndShow(
-                    new TextLibraryScreen((BookEditScreen) (Object) this)));
+            addButton(x, y, "文本库 / 预览", b -> Minecraft.getInstance()
+                    .setScreenAndShow(new TextLibraryScreen(this0)));
             addButton(x, y + BTN_H + BTN_GAP, "粘贴剪贴板", b -> {
-                if (!importFromClipboard(true)) {
+                if (!Actions.importClipboard(this0, true)) {
                     Inkwell.log("剪贴板是空的，或者没有可导入的内容");
                 }
             });
             addButton(x, y + (BTN_H + BTN_GAP) * 2, "跳转页码…", b -> Minecraft.getInstance()
-                    .setScreenAndShow(new com.kujoushiori.inkwell.PageJumpScreen((BookEditScreen) (Object) this)));
+                    .setScreenAndShow(new PageJumpScreen(this0)));
             addButton(x, y + (BTN_H + BTN_GAP) * 3, "设置", b -> Minecraft.getInstance()
-                    .setScreenAndShow(new com.kujoushiori.inkwell.SettingsScreen((BookEditScreen) (Object) this)));
+                    .setScreenAndShow(new SettingsScreen(this0)));
+            addButton(x, y + (BTN_H + BTN_GAP) * 4, "签名…", b -> {
+                var sign = acc.inkwellSignScreen();
+                if (sign != null) {
+                    Minecraft.getInstance().setScreenAndShow(sign);
+                } else {
+                    Inkwell.log("拿不到签名界面");
+                }
+            });
         } catch (Throwable t) {
             Inkwell.log("加按钮失败：" + t);
         }
@@ -120,35 +132,18 @@ public abstract class BookEditScreenMixin {
         try {
             boolean shift = event.hasShiftDown();
             boolean alt = event.hasAltDown();
+            BookEditScreen self = (BookEditScreen) (Object) this;
             if (alt) {
-                if (importFromFile(InkwellConfig.get().file)) {
+                if (Actions.importFile(self, InkwellConfig.get().file)) {
                     cir.setReturnValue(true);
                 }
                 return;
             }
-            if (importFromClipboard(shift)) {
+            if (Actions.importClipboard(self, shift)) {
                 cir.setReturnValue(true);
             }
         } catch (Throwable t) {
             Inkwell.log("导入出错：" + t);
         }
-    }
-
-    // ---------------------------------------------------------------- 导入
-    private boolean importFromClipboard(boolean force) {
-        String clip = Minecraft.getInstance().keyboardHandler.getClipboard();
-        if (clip == null || clip.isBlank()) {
-            return false;
-        }
-        InkwellConfig cfg = InkwellConfig.get();
-        if (!force && cfg.longClipboardOnly && clip.length() <= cfg.charsPerPage) {
-            return false;
-        }
-        return BookWriter.write((BookEditScreen) (Object) this, Inkwell.paginate(clip));
-    }
-
-    private boolean importFromFile(String name) {
-        String text = Inkwell.readFile(name);
-        return text != null && BookWriter.write((BookEditScreen) (Object) this, Inkwell.paginate(text));
     }
 }

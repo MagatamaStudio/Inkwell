@@ -29,6 +29,27 @@ public final class Inkwell {
         }
     }
 
+    private static java.lang.reflect.Field SCREEN_FIELD;
+
+    /** 当前打开的界面。26.3 的 Minecraft 里没有公开的 screen 字段，反射找一次缓存起来。 */
+    public static net.minecraft.client.gui.screens.Screen currentScreen() {
+        try {
+            if (SCREEN_FIELD == null) {
+                for (java.lang.reflect.Field f : Minecraft.class.getDeclaredFields()) {
+                    if (net.minecraft.client.gui.screens.Screen.class.isAssignableFrom(f.getType())) {
+                        f.setAccessible(true);
+                        SCREEN_FIELD = f;
+                        break;
+                    }
+                }
+            }
+            return SCREEN_FIELD == null ? null
+                    : (net.minecraft.client.gui.screens.Screen) SCREEN_FIELD.get(Minecraft.getInstance());
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
     /** 文本根目录（配置项 folder）。 */
     public static Path root() {
         Path dir = InkwellConfig.get().folderPath();

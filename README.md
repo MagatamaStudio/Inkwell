@@ -4,6 +4,8 @@
 
 Minecraft **26.3** · Fabric **纯客户端** · 作者 **KujouShiori**
 
+*[English](README.en.md)*
+
 原版《书与笔》只能一个字一个字敲，而且编辑框写着 1024 字/页——可阅读界面一页**根本画不下**这么多。Inkwell 在书页旁边加了按钮，把整篇文章按"实际能看见的排版"切好页写进去。
 
 ## 特性
@@ -23,7 +25,7 @@ Minecraft **26.3** · Fabric **纯客户端** · 作者 **KujouShiori**
 ## 安装
 
 1. 装好 **Fabric Loader 0.19.5+**（Minecraft 26.3，Java 25）
-2. 把 `inkwell-1.1.1.jar` 丢进 `.minecraft/mods/`
+2. 把 `inkwell-1.2.0.jar` 丢进 `.minecraft/mods/`
 3. 启动游戏，日志里会出现 `Inkwell 已加载 | …`
 
 不需要装 Fabric API，也不用装服务端。
@@ -31,15 +33,17 @@ Minecraft **26.3** · Fabric **纯客户端** · 作者 **KujouShiori**
 ## 文档
 
 - [格式说明](docs/格式说明.md) — 放哪里、什么编码、`---` 翻页、Markdown 怎么转、一页能放多少字
+- [English README](README.en.md)
 
 ## 使用
 
-打开《书与笔》，书页右侧会出现三个按钮：
+打开《书与笔》，书页右侧会出现五个按钮：
 
 - **文本库 / 预览** — 选文件、看预览、确认导入
 - **粘贴剪贴板** — 直接把剪贴板内容分页写进书里
 - **跳转页码…** — 输入页码跳转
 - **设置** — 游戏内改配置，点保存立即生效（同时写回 `config/inkwell.properties`）
+- **签名…** — 直接打开原版签名界面，不用去点那个小按钮
 
 快捷键（在书与笔界面里按）：
 
@@ -48,6 +52,7 @@ Minecraft **26.3** · Fabric **纯客户端** · 作者 **KujouShiori**
 | `Ctrl + V` | 剪贴板超过一页才整本导入；短文本交给原版 |
 | `Ctrl + Shift + V` | 无条件把剪贴板导入成整页 |
 | `Ctrl + Alt + V` | 导入 `inkwell/book.txt` |
+| **鼠标中键** | 粘贴剪贴板（输入法吞掉 `Ctrl+V` 时的备用入口，只在书与笔界面生效） |
 
 文本文件放在游戏目录下的 `inkwell/` 里（进游戏后第一次导入会自动创建）。可以建子文件夹按作品分类：
 
@@ -100,7 +105,7 @@ debug=false               # 打印每个按键事件
 ./gradlew build          # Windows: gradlew.bat build
 ```
 
-产物在 `build/libs/inkwell-1.1.1.jar`。
+产物在 `build/libs/inkwell-1.2.0.jar`。
 
 > **关于映射**：Minecraft 26.3 的客户端**本身没有混淆**——Mojang 的 version json 里已经没有
 > `client_mappings`，Fabric 的 intermediary 也是只有表头的空表。所以本项目不需要 Remap：

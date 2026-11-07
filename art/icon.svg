@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FBF6EA"/>
+      <stop offset="1" stop-color="#EFE6D2"/>
+    </linearGradient>
+    <linearGradient id="sun" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#D6202F"/>
+      <stop offset="1" stop-color="#A81421"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2E2E34"/>
+      <stop offset="0.45" stop-color="#121216"/>
+      <stop offset="1" stop-color="#05050A"/>
+    </linearGradient>
+    <clipPath id="paperClip">
+      <rect x="16" y="16" width="480" height="480" rx="88"/>
+    </clipPath>
+  </defs>
+
+  <!-- 和纸底 -->
+  <rect x="16" y="16" width="480" height="480" rx="88" fill="url(#paper)" stroke="#141414" stroke-width="10"/>
+
+  <g clip-path="url(#paperClip)">
+    <!-- 朱日 -->
+    <circle cx="262" cy="206" r="132" fill="url(#sun)"/>
+    <circle cx="262" cy="206" r="132" fill="none" stroke="#7E0F18" stroke-width="4" opacity="0.5"/>
+
+    <!-- 鸟居 -->
+    <g fill="#141414">
+      <path d="M74 244 Q 262 212 450 244 L 450 270 Q 262 238 74 270 Z"/>
+      <rect x="104" y="282" width="316" height="20" rx="4"/>
+      <rect x="132" y="326" width="248" height="16" rx="4"/>
+      <rect x="146" y="270" width="30" height="198" rx="6"/>
+      <rect x="336" y="270" width="30" height="198" rx="6"/>
+    </g>
+  </g>
+
+  <!-- 墨水瓶 -->
+  <g>
+    <rect x="228" y="334" width="56" height="20" rx="8" fill="#3A3A42"/>
+    <rect x="236" y="346" width="40" height="10" rx="4" fill="#1B1B20"/>
+    <rect x="242" y="354" width="28" height="30" fill="url(#ink)"/>
+    <path d="M262 382
+             C 312 382 338 408 338 438
+             C 338 468 306 484 262 484
+             C 218 484 186 468 186 438
+             C 186 408 212 382 262 382 Z"
+          fill="url(#ink)"/>
+    <path d="M224 412 C 216 430 218 452 230 464 C 218 454 210 434 214 418 Z" fill="#FFFFFF" opacity="0.35"/>
+    <ellipse cx="246" cy="408" rx="13" ry="6" fill="#FFFFFF" opacity="0.26"/>
+    <path d="M200 434 C 224 446 300 446 324 434 C 316 454 298 462 262 462 C 226 462 208 454 200 434 Z"
+          fill="#5C1F6B" opacity="0.32"/>
+  </g>
+
+  <!-- 朱印 -->
+  <g transform="translate(384 372)">
+    <rect width="84" height="84" rx="10" fill="#C21E2D"/>
+    <rect x="11" y="11" width="62" height="62" rx="5" fill="none" stroke="#FBF6EA" stroke-width="6"/>
+    <g fill="#FBF6EA">
+      <rect x="27" y="24" width="7" height="38" rx="2"/>
+      <rect x="41" y="24" width="7" height="26" rx="2"/>
+      <rect x="55" y="24" width="7" height="38" rx="2"/>
+      <rect x="27" y="48" width="35" height="6" rx="2"/>
+    </g>
+  </g>
+
+  <rect x="30" y="30" width="452" height="452" rx="76" fill="none" stroke="#141414" stroke-width="2" opacity="0.2"/>
+</svg>

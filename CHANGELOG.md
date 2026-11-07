@@ -2,6 +2,17 @@
 
 所有值得记录的改动。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [1.0.1] - 2026-11-08
+
+### 修复
+
+- 读取 UTF-8 BOM 开头的文件（Windows 记事本默认保存格式）时，第一页开头会多一个不可见字符 —— 现在会自动去掉 BOM
+
+### 文档
+
+- 新增 [docs/格式说明.md](docs/格式说明.md)：编码、翻页标记、Markdown 转换表、每页容量、常见问题
+- 新增 GitHub Actions：push / PR 自动构建并上传 jar，打 `v*` tag 时自动发布 Release
+
 ## [1.0.0] - 2026-11-08
 
 首个版本。

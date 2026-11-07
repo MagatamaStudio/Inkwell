@@ -94,7 +94,12 @@ public final class TextPager {
         if (Files.size(p) > maxBytes) {
             throw new IOException("文件过大：" + Files.size(p) + " 字节（上限 " + maxBytes + "）");
         }
-        return new String(Files.readAllBytes(p), StandardCharsets.UTF_8);
+        String text = new String(Files.readAllBytes(p), StandardCharsets.UTF_8);
+        // 去掉 Windows 记事本写出的 UTF-8 BOM，否则第一页开头会多一个看不见的字符
+        if (!text.isEmpty() && text.charAt(0) == '\uFEFF') {
+            text = text.substring(1);
+        }
+        return text;
     }
 
     // ---------------------------------------------------------------- 自测

@@ -20,10 +20,14 @@ Minecraft **26.3** · Fabric **纯客户端** · 作者 **KujouShiori**
 ## 安装
 
 1. 装好 **Fabric Loader 0.19.5+**（Minecraft 26.3，Java 25）
-2. 把 `inkwell-1.0.0.jar` 丢进 `.minecraft/mods/`
+2. 把 `inkwell-1.0.1.jar` 丢进 `.minecraft/mods/`
 3. 启动游戏，日志里会出现 `Inkwell 已加载 | …`
 
 不需要装 Fabric API，也不用装服务端。
+
+## 文档
+
+- [格式说明](docs/格式说明.md) — 放哪里、什么编码、`---` 翻页、Markdown 怎么转、一页能放多少字
 
 ## 使用
 
@@ -80,7 +84,7 @@ debug=false               # 打印每个按键事件
 ./gradlew build          # Windows: gradlew.bat build
 ```
 
-产物在 `build/libs/inkwell-1.0.0.jar`。
+产物在 `build/libs/inkwell-1.0.1.jar`。
 
 > **关于映射**：Minecraft 26.3 的客户端**本身没有混淆**——Mojang 的 version json 里已经没有
 > `client_mappings`，Fabric 的 intermediary 也是只有表头的空表。所以本项目不需要 Remap：

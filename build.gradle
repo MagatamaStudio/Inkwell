@@ -1,0 +1,68 @@
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
+
+buildscript {
+    repositories {
+        maven { name = "Fabric"; url = "https://maven.fabricmc.net/" }
+        mavenCentral()
+    }
+    dependencies {
+        classpath "net.fabricmc:fabric-loom:${loom_version}"
+    }
+}
+
+apply plugin: "fabric-loom"
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    mavenCentral()
+}
+
+/*
+ * Minecraft 26.3 的客户端**本身没有混淆**：Mojang 的 version json 里已经没有
+ * client_mappings，Fabric 的 intermediary 也是空表（25 字节，只有表头）。
+ * 所以这里给 Loom 一份空的 tiny 映射，等价于“不重映射”，类名保持 net.minecraft.xxx。
+ * 文件在配置阶段生成，仓库里不需要提交二进制。
+ */
+def noopMappings = file("$buildDir/mappings/noop-mappings.jar")
+if (!noopMappings.exists()) {
+    noopMappings.parentFile.mkdirs()
+    def zos = new ZipOutputStream(new FileOutputStream(noopMappings))
+    try {
+        zos.putNextEntry(new ZipEntry("mappings/mappings.tiny"))
+        zos.write("tiny\t2\t0\tofficial\tnamed\n".getBytes("UTF-8"))
+        zos.closeEntry()
+    } finally {
+        zos.close()
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings files(noopMappings)
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+}
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 25
+    it.options.encoding = "UTF-8"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}

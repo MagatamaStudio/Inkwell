@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.kujoushiori.inkwell.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "BookEditScreenMixin",
+    "BookEditScreenAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

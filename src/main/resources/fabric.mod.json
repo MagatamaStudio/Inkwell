@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "inkwell",
+  "version": "1.0.0",
+  "name": "Inkwell",
+  "description": "书与笔一键导入：从剪贴板或 .minecraft/inkwell 下的 txt / md 读入文字，按原版阅读界面的实际排版（114px × 14 行）自动分页，纯客户端。",
+  "authors": [
+    "KujouShiori"
+  ],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.kujoushiori.inkwell.InkwellClient"
+    ]
+  },
+  "mixins": [
+    "inkwell.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.0",
+    "minecraft": ">=26.3",
+    "java": ">=25"
+  }
+}

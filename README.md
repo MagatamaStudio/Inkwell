@@ -11,6 +11,9 @@ Minecraft **26.3** · Fabric **纯客户端** · 作者 **KujouShiori**
 | 功能 | 说明 |
 |---|---|
 | **文本库** | 列出 `.minecraft/inkwell/` 下的 txt / md，实时搜索文件名、按名称/时间/大小排序，右侧预览首屏 |
+| **文件夹浏览** | 支持子文件夹：`inkwell/小说A/ch01.md`、`inkwell/小说B/ch01.md` 各自成组，点文件夹进入，面包屑显示当前位置 |
+| **递归扫描** | 一键把子文件夹里的文件全平铺出来（按相对路径排序），找文件不用一层层点 |
+| **游戏内设置** | 书页右侧「设置」按钮，目录、翻页标记、每页行数/字数、页数上限、Markdown、递归等都能直接改，保存即生效 |
 | **Markdown** | `.md` 自动转纯文本：标题、加粗、斜体、行内代码、链接、列表、引用、代码块、表格全部清掉，单独一行的 `---` 保留为**翻页标记** |
 | **按显示分页** | 用游戏字体实测每行宽度（114px）和行高，一页 14 行，保证书里每一页都完整可见 |
 | **两种写入方式** | 「从当前页覆盖」或「末尾追加」，导入前弹确认框写清楚会覆盖到第几页 |
@@ -20,7 +23,7 @@ Minecraft **26.3** · Fabric **纯客户端** · 作者 **KujouShiori**
 ## 安装
 
 1. 装好 **Fabric Loader 0.19.5+**（Minecraft 26.3，Java 25）
-2. 把 `inkwell-1.0.1.jar` 丢进 `.minecraft/mods/`
+2. 把 `inkwell-1.1.0.jar` 丢进 `.minecraft/mods/`
 3. 启动游戏，日志里会出现 `Inkwell 已加载 | …`
 
 不需要装 Fabric API，也不用装服务端。
@@ -36,6 +39,7 @@ Minecraft **26.3** · Fabric **纯客户端** · 作者 **KujouShiori**
 - **文本库 / 预览** — 选文件、看预览、确认导入
 - **粘贴剪贴板** — 直接把剪贴板内容分页写进书里
 - **跳转页码…** — 输入页码跳转
+- **设置** — 游戏内改配置，点保存立即生效（同时写回 `config/inkwell.properties`）
 
 快捷键（在书与笔界面里按）：
 
@@ -45,7 +49,18 @@ Minecraft **26.3** · Fabric **纯客户端** · 作者 **KujouShiori**
 | `Ctrl + Shift + V` | 无条件把剪贴板导入成整页 |
 | `Ctrl + Alt + V` | 导入 `inkwell/book.txt` |
 
-文本文件放在游戏目录下的 `inkwell/` 里（进游戏后第一次导入会自动创建）。
+文本文件放在游戏目录下的 `inkwell/` 里（进游戏后第一次导入会自动创建）。可以建子文件夹按作品分类：
+
+```
+inkwell/
+├── 长篇一/
+│   ├── 第一章.md
+│   └── 第二章.md
+└── 短篇集/
+    └── 番外.txt
+```
+
+文本库里点文件夹进入，或者打开「递归」直接看全部。
 
 ## 配置
 
@@ -55,6 +70,7 @@ Minecraft **26.3** · Fabric **纯客户端** · 作者 **KujouShiori**
 folder=inkwell            # txt/md 所在文件夹（相对游戏目录）
 file=book.txt             # Ctrl+Alt+V 导入的文件名
 
+recursive=true            # 文本库默认递归扫描子文件夹
 displayPaging=true        # 按实际显示宽度分页（推荐）；false 只按字符数
 charsPerPage=1024         # 每页字符硬上限（原版编辑框上限）
 linesPerPage=14           # 每页行数（原版 126 / 9 = 14）
@@ -84,7 +100,7 @@ debug=false               # 打印每个按键事件
 ./gradlew build          # Windows: gradlew.bat build
 ```
 
-产物在 `build/libs/inkwell-1.0.1.jar`。
+产物在 `build/libs/inkwell-1.1.0.jar`。
 
 > **关于映射**：Minecraft 26.3 的客户端**本身没有混淆**——Mojang 的 version json 里已经没有
 > `client_mappings`，Fabric 的 intermediary 也是只有表头的空表。所以本项目不需要 Remap：

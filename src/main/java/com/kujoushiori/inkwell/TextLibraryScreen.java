@@ -17,22 +17,27 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 
 /**
- * 文本库：搜索 / 排序 / 选择 txt / 右侧预览 / 写入方式 / 导入前确认。
+ * 文本库：文件夹导航 / 递归扫描 / 搜索 / 排序 / 预览 / 导入。
  */
 public class TextLibraryScreen extends Screen {
     private static final int PER_PAGE = 8;
     private static final int LIST_X = 16;
     private static final int LIST_W = 150;
 
-    private final BookEditScreen book;
-    private final List<Path> all;
+    private record Entry(Path path, boolean dir) {
+    }
 
-    private final List<Path> view = new ArrayList<>();
+    private final BookEditScreen book;
+    private final Path root;
+    private Path dir;
+
+    private final List<Entry> view = new ArrayList<>();
     private String filter = "";
     private int sortMode;          // 0=名称 1=修改时间 2=大小
     private boolean appendMode;    // 追加到末尾
-    private int page;              // 列表第几页
-    private int selected;          // 选中项在 view 里的下标
+    private boolean recursive;
+    private int page;
+    private int selected;
 
     private String content = "";
     private int chars;
@@ -41,7 +46,9 @@ public class TextLibraryScreen extends Screen {
     public TextLibraryScreen(BookEditScreen book) {
         super(Component.literal("文本库"));
         this.book = book;
-        this.all = Inkwell.listTxt();
+        this.root = Inkwell.root();
+        this.dir = root;
+        this.recursive = InkwellConfig.get().recursive;
         this.selected = -1;
         refreshView();
     }
@@ -50,30 +57,49 @@ public class TextLibraryScreen extends Screen {
     private void refreshView() {
         view.clear();
         String f = filter == null ? "" : filter.trim().toLowerCase();
-        for (Path p : all) {
-            String name = p.getFileName().toString();
-            if (f.isEmpty() || name.toLowerCase().contains(f)) {
-                view.add(p);
+
+        if (!recursive) {
+            for (Path d : Inkwell.listDirs(dir)) {
+                String name = d.getFileName().toString();
+                if (f.isEmpty() || name.toLowerCase().contains(f)) {
+                    view.add(new Entry(d, true));
+                }
             }
         }
-        Comparator<Path> cmp;
+        for (Path p : Inkwell.listFiles(dir, recursive)) {
+            String name = recursive ? Inkwell.relativePath(dir, p) : p.getFileName().toString();
+            if (f.isEmpty() || name.toLowerCase().contains(f)) {
+                view.add(new Entry(p, false));
+            }
+        }
+
+        Comparator<Entry> cmp;
         switch (sortMode) {
             case 1:
-                cmp = Comparator.comparingLong(TextLibraryScreen::modified).reversed();
+                cmp = Comparator.comparingLong((Entry e) -> modified(e.path())).reversed();
                 break;
             case 2:
-                cmp = Comparator.comparingLong(TextLibraryScreen::size).reversed();
+                cmp = Comparator.comparingLong((Entry e) -> size(e.path())).reversed();
                 break;
             default:
-                cmp = Comparator.comparing(p -> p.getFileName().toString().toLowerCase());
+                cmp = Comparator.comparing(e -> label(e).toLowerCase());
         }
-        view.sort(cmp);
+        // 文件夹永远排在前面
+        view.sort(Comparator.comparing((Entry e) -> !e.dir()).thenComparing(cmp));
+
         if (selected >= view.size()) {
             selected = view.isEmpty() ? -1 : 0;
         }
         if (page * PER_PAGE > view.size()) {
             page = 0;
         }
+    }
+
+    private String label(Entry e) {
+        if (e.dir()) {
+            return "[" + e.path().getFileName() + "]";
+        }
+        return recursive ? Inkwell.relativePath(dir, e.path()) : e.path().getFileName().toString();
     }
 
     private static long modified(Path p) {
@@ -92,15 +118,21 @@ public class TextLibraryScreen extends Screen {
         }
     }
 
-    private Path selectedPath() {
+    private Entry selectedEntry() {
         return selected >= 0 && selected < view.size() ? view.get(selected) : null;
+    }
+
+    private Path selectedFile() {
+        Entry e = selectedEntry();
+        return e != null && !e.dir() ? e.path() : null;
     }
 
     // ---------------------------------------------------------------- 布局
     @Override
     protected void init() {
         try {
-            EditBox search = new EditBox(this.font, LIST_X, 28, LIST_W, 18, Component.literal("搜索"));
+            int top = 28;
+            EditBox search = new EditBox(this.font, LIST_X, top, 140, 18, Component.literal("搜索"));
             search.setValue(filter);
             search.setHint(Component.literal("搜索文件名…"));
             search.setResponder(s -> {
@@ -115,34 +147,58 @@ public class TextLibraryScreen extends Screen {
                 sortMode = (sortMode + 1) % 3;
                 refreshView();
                 rebuildWidgets();
-            }).pos(LIST_X + LIST_W + 6, 28).size(92, 18).build());
+            }).pos(LIST_X + 144, top).size(92, 18).build());
 
             addRenderableWidget(Button.builder(
                     Component.literal(appendMode ? "写入：末尾追加" : "写入：从当前页"), b -> {
                         appendMode = !appendMode;
                         rebuildWidgets();
-                    }).pos(LIST_X + LIST_W + 6 + 96, 28).size(112, 18).build());
+                    }).pos(LIST_X + 240, top).size(112, 18).build());
 
-            buildFileButtons();
+            addRenderableWidget(Button.builder(Component.literal(recursive ? "递归：开" : "递归：关"), b -> {
+                recursive = !recursive;
+                selected = -1;
+                page = 0;
+                refreshView();
+                rebuildWidgets();
+            }).pos(LIST_X + 356, top).size(76, 18).build());
+
+            addRenderableWidget(Button.builder(Component.literal("设置"), b -> Minecraft.getInstance()
+                    .setScreenAndShow(new SettingsScreen(this)))
+                    .pos(this.width - 68, 10).size(58, 18).build());
+
+            buildList();
 
             int bottom = this.height - 32;
+            if (!dir.equals(root)) {
+                addRenderableWidget(Button.builder(Component.literal("← 上一级"), b -> {
+                    Path up = dir.getParent();
+                    dir = (up != null && up.startsWith(root)) ? up : root;
+                    selected = -1;
+                    page = 0;
+                    refreshView();
+                    rebuildWidgets();
+                }).pos(LIST_X, bottom).size(72, 20).build());
+            }
+
             addRenderableWidget(Button.builder(Component.literal("导入到书里"), b -> askImport())
                     .pos(this.width - 132, bottom).size(120, 20).build());
             addRenderableWidget(Button.builder(Component.literal("返回"), b -> back())
                     .pos(this.width - 262, bottom).size(120, 20).build());
 
             if (view.size() > PER_PAGE) {
+                int px = LIST_X + 80;
                 if (page > 0) {
                     addRenderableWidget(Button.builder(Component.literal("上一页"), b -> {
                         page--;
                         rebuildWidgets();
-                    }).pos(LIST_X, bottom).size(52, 20).build());
+                    }).pos(px, bottom).size(52, 20).build());
                 }
                 if ((page + 1) * PER_PAGE < view.size()) {
                     addRenderableWidget(Button.builder(Component.literal("下一页"), b -> {
                         page++;
                         rebuildWidgets();
-                    }).pos(LIST_X + 56, bottom).size(52, 20).build());
+                    }).pos(px + 56, bottom).size(52, 20).build());
                 }
             }
         } catch (Throwable t) {
@@ -158,19 +214,26 @@ public class TextLibraryScreen extends Screen {
         };
     }
 
-    private void buildFileButtons() {
+    private void buildList() {
         int from = page * PER_PAGE;
         int to = Math.min(view.size(), from + PER_PAGE);
         for (int i = from; i < to; i++) {
             final int idx = i;
-            String name = view.get(i).getFileName().toString();
-            String label = (i == selected ? "▶ " : "") + name;
-            if (label.length() > 17) {
-                label = label.substring(0, 16) + "…";
+            Entry e = view.get(i);
+            String text = (i == selected ? "▶ " : "") + label(e);
+            if (text.length() > 18) {
+                text = text.substring(0, 17) + "…";
             }
-            addRenderableWidget(Button.builder(Component.literal(label), b -> {
-                selected = idx;
-                loadPreview();
+            addRenderableWidget(Button.builder(Component.literal(text), b -> {
+                if (e.dir()) {
+                    dir = e.path();
+                    selected = -1;
+                    page = 0;
+                    refreshView();
+                } else {
+                    selected = idx;
+                    loadPreview();
+                }
                 rebuildWidgets();
             }).pos(LIST_X, 52 + (i - from) * 22).size(LIST_W, 20).build());
         }
@@ -180,11 +243,11 @@ public class TextLibraryScreen extends Screen {
         content = "";
         chars = 0;
         pages = 0;
-        Path p = selectedPath();
+        Path p = selectedFile();
         if (p == null) {
             return;
         }
-        String text = Inkwell.readFile(p.getFileName().toString());
+        String text = Inkwell.readText(p);
         if (text == null) {
             return;
         }
@@ -200,12 +263,12 @@ public class TextLibraryScreen extends Screen {
 
     // ---------------------------------------------------------------- 导入
     private void askImport() {
-        Path p = selectedPath();
+        Path p = selectedFile();
         if (p == null) {
             Inkwell.log("没选中文件");
             return;
         }
-        String text = Inkwell.readFile(p.getFileName().toString());
+        String text = Inkwell.readText(p);
         if (text == null) {
             return;
         }
@@ -215,10 +278,11 @@ public class TextLibraryScreen extends Screen {
         }
         int total = BookWriter.pageCount(book);
         int cur = BookWriter.currentPage(book) + 1;
+        String name = p.getFileName().toString();
         String msg = appendMode
-                ? "把《" + p.getFileName() + "》的 " + newPages.size() + " 页追加到末尾。\n当前共 " + total + " 页，追加后 "
+                ? "把《" + name + "》的 " + newPages.size() + " 页追加到末尾。\n当前共 " + total + " 页，追加后 "
                         + Math.min(BookWriter.MAX_PAGES, total + newPages.size()) + " 页。"
-                : "把《" + p.getFileName() + "》的 " + newPages.size() + " 页写入书里。\n会从第 " + cur
+                : "把《" + name + "》的 " + newPages.size() + " 页写入书里。\n会从第 " + cur
                         + " 页开始覆盖，原来第 " + cur + " 页及之后的内容都没了（当前共 " + total + " 页）。";
 
         final List<String> pagesToWrite = newPages;
@@ -229,7 +293,7 @@ public class TextLibraryScreen extends Screen {
                         ? BookWriter.append(book, pagesToWrite)
                         : BookWriter.write(book, pagesToWrite);
                 if (done) {
-                    Inkwell.log("已从文本库导入 " + p.getFileName());
+                    Inkwell.log("已从文本库导入 " + name);
                     Minecraft.getInstance().setScreenAndShow(book);
                 } else {
                     Minecraft.getInstance().setScreenAndShow(this);
@@ -255,18 +319,26 @@ public class TextLibraryScreen extends Screen {
             int bottom = this.height - 44;
 
             g.fill(left - 4, top - 4, right, bottom, 0xC0101010);
-            g.text(this.font, Component.literal("文本库 · " + view.size() + " / " + all.size() + " 个文件"),
-                    LIST_X, 10, 0xFFFFFFFF);
 
-            Path sel = selectedPath();
+            String crumb = "inkwell" + (dir.equals(root) ? "" : " / " + Inkwell.relativePath(root, dir));
+            if (crumb.length() > 46) {
+                crumb = "…" + crumb.substring(crumb.length() - 45);
+            }
+            g.text(this.font, Component.literal(crumb + "   ·   " + view.size() + " 项"), LIST_X, 10, 0xFFFFFFFF);
+
+            Entry sel = selectedEntry();
             if (sel == null) {
-                g.text(this.font, Component.literal(all.isEmpty() ? "没有找到 txt / md 文件" : "没有匹配的文件"),
-                        left, top, 0xFFFF8080);
-                g.text(this.font, Component.literal(InkwellConfig.get().folderPath().toString()),
-                        left, top + 14, 0xFFA0A0A0);
+                g.text(this.font, Component.literal(view.isEmpty() ? "这里没有 txt / md 文件" : "没选中文件"),
+                        left, top, 0xFFA0A0A0);
                 return;
             }
-            g.text(this.font, Component.literal("预览：" + sel.getFileName()), left, top, 0xFFFFE07A);
+            if (sel.dir()) {
+                g.text(this.font, Component.literal("文件夹：" + sel.path().getFileName()), left, top, 0xFFFFE07A);
+                g.text(this.font, Component.literal("点一下进入这个文件夹"), left, top + 14, 0xFF9AD0FF);
+                return;
+            }
+            g.text(this.font, Component.literal("预览：" + Inkwell.relativePath(root, sel.path())),
+                    left, top, 0xFFFFE07A);
             g.text(this.font, Component.literal("共 " + chars + " 字 · 约 " + pages + " 页（按实际显示宽度算）"),
                     left, top + 12, 0xFF9AD0FF);
 

@@ -12,8 +12,6 @@ import net.minecraft.client.Minecraft;
 
 /** 读文件、找文件、打日志。 */
 public final class Inkwell {
-    private static int nextFileIndex = -1;
-
     private Inkwell() {
     }
 
@@ -31,22 +29,28 @@ public final class Inkwell {
         }
     }
 
-    /** 文件夹里所有 txt / md，按名字排序。 */
-    public static List<Path> listTxt() {
+    /** 文本根目录（配置项 folder）。 */
+    public static Path root() {
         Path dir = InkwellConfig.get().folderPath();
-        List<Path> out = new ArrayList<>();
         if (!Files.isDirectory(dir)) {
             try {
                 Files.createDirectories(dir);
             } catch (IOException e) {
                 log("创建目录失败：" + e);
             }
+        }
+        return dir;
+    }
+
+    /** 某个目录下的子目录，按名字排序。 */
+    public static List<Path> listDirs(Path dir) {
+        List<Path> out = new ArrayList<>();
+        if (!Files.isDirectory(dir)) {
             return out;
         }
         try (Stream<Path> s = Files.list(dir)) {
-            s.filter(Files::isRegularFile)
-                    .filter(Inkwell::isTextFile)
-                    .sorted(Comparator.comparing(p -> p.getFileName().toString()))
+            s.filter(Files::isDirectory)
+                    .sorted(Comparator.comparing(p -> p.getFileName().toString().toLowerCase()))
                     .forEach(out::add);
         } catch (IOException e) {
             log("列目录失败：" + e);
@@ -54,24 +58,52 @@ public final class Inkwell {
         return out;
     }
 
-    /** 读取指定文件（默认 book.txt），失败返回 null。 */
-    public static String readFile(String name) {
+    /**
+     * 文本文件。recursive=true 时把子文件夹里的也一起列出来（按相对路径排序）。
+     */
+    public static List<Path> listFiles(Path dir, boolean recursive) {
+        List<Path> out = new ArrayList<>();
+        if (!Files.isDirectory(dir)) {
+            return out;
+        }
+        try (Stream<Path> s = recursive ? Files.walk(dir) : Files.list(dir)) {
+            s.filter(Files::isRegularFile)
+                    .filter(Inkwell::isTextFile)
+                    .forEach(out::add);
+        } catch (IOException e) {
+            log("列文件失败：" + e);
+        }
+        out.sort(Comparator.comparing(p -> relativePath(dir, p).toLowerCase()));
+        return out;
+    }
+
+    /** 相对根目录的路径，用于显示。 */
+    public static String relativePath(Path base, Path file) {
+        try {
+            return base.relativize(file).toString().replace('\\', '/');
+        } catch (Exception e) {
+            return file.getFileName().toString();
+        }
+    }
+
+    /** 读取任意文本文件（带 Markdown 转换），失败返回 null。 */
+    public static String readText(Path p) {
         InkwellConfig cfg = InkwellConfig.get();
-        Path dir = cfg.folderPath();
-        Path p = dir.resolve(name).normalize();
-        if (!p.startsWith(dir.normalize())) {
-            log("文件名不合法：" + name);
+        Path root = cfg.folderPath().normalize();
+        Path abs = p.toAbsolutePath().normalize();
+        if (!abs.startsWith(root)) {
+            log("文件不在 " + root + " 里：" + abs);
             return null;
         }
-        if (!Files.isRegularFile(p)) {
-            log("找不到文件：" + p + "（把 txt 放到 .minecraft/" + cfg.folder + "/ 下）");
+        if (!Files.isRegularFile(abs)) {
+            log("找不到文件：" + abs);
             return null;
         }
         try {
-            String text = TextPager.readUtf8(p, cfg.maxFileBytes);
-            if (cfg.markdown && isMarkdown(p.getFileName().toString())) {
+            String text = TextPager.readUtf8(abs, cfg.maxFileBytes);
+            if (cfg.markdown && isMarkdown(abs.getFileName().toString())) {
                 String plain = Markdown.toPlain(text);
-                log("已把 " + p.getFileName() + " 的 Markdown 语法清掉（" + text.length()
+                log("已把 " + abs.getFileName() + " 的 Markdown 语法清掉（" + text.length()
                         + " -> " + plain.length() + " 字）");
                 return plain;
             }
@@ -82,20 +114,16 @@ public final class Inkwell {
         }
     }
 
-    /** 循环取下一个 txt / md，返回 [文件名, 内容]；没有文件返回 null。 */
-    public static String[] readNextFile() {
-        List<Path> files = listTxt();
-        if (files.isEmpty()) {
-            log("文件夹里没有 txt / md：" + InkwellConfig.get().folderPath());
+    /** 读取根目录下的某个文件（默认 book.txt）。 */
+    public static String readFile(String name) {
+        InkwellConfig cfg = InkwellConfig.get();
+        Path dir = cfg.folderPath();
+        Path p = dir.resolve(name).normalize();
+        if (!p.startsWith(dir.normalize())) {
+            log("文件名不合法：" + name);
             return null;
         }
-        nextFileIndex = (nextFileIndex + 1) % files.size();
-        Path p = files.get(nextFileIndex);
-        String text = readFile(p.getFileName().toString());
-        if (text == null) {
-            return null;
-        }
-        return new String[]{p.getFileName().toString(), text};
+        return readText(p);
     }
 
     public static boolean isMarkdown(String name) {
@@ -115,7 +143,7 @@ public final class Inkwell {
 
         if (cfg.displayPaging) {
             try {
-                var font = net.minecraft.client.Minecraft.getInstance().font;
+                var font = Minecraft.getInstance().font;
                 pages = DisplayPager.paginate(text, font, DisplayPager.TEXT_WIDTH, cfg.linesPerPage,
                         cfg.charsPerPage, cfg.maxPages, cfg.pageBreakLine);
                 if (pages.isEmpty()) {
@@ -123,8 +151,8 @@ public final class Inkwell {
                     return null;
                 }
                 StringBuilder sb = new StringBuilder("按显示宽度分页：")
-                        .append(pages.size()).append(" 页 / 共 ").append(text.length()).append(" 字（每页 "
-                                ).append(cfg.linesPerPage).append(" 行 × ").append(DisplayPager.TEXT_WIDTH).append("px）");
+                        .append(pages.size()).append(" 页 / 共 ").append(text.length()).append(" 字（每页 ")
+                        .append(cfg.linesPerPage).append(" 行 × ").append(DisplayPager.TEXT_WIDTH).append("px）");
                 if (pages.size() >= cfg.maxPages) {
                     sb.append("（可能被 ").append(cfg.maxPages).append(" 页上限截断）");
                 }

@@ -68,6 +68,8 @@ public abstract class BookEditScreenMixin {
             });
             addButton(x, y + (BTN_H + BTN_GAP) * 2, "跳转页码…", b -> Minecraft.getInstance()
                     .setScreenAndShow(new com.kujoushiori.inkwell.PageJumpScreen((BookEditScreen) (Object) this)));
+            addButton(x, y + (BTN_H + BTN_GAP) * 3, "设置", b -> Minecraft.getInstance()
+                    .setScreenAndShow(new com.kujoushiori.inkwell.SettingsScreen((BookEditScreen) (Object) this)));
         } catch (Throwable t) {
             Inkwell.log("加按钮失败：" + t);
         }

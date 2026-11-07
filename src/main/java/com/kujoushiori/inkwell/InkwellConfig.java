@@ -9,7 +9,7 @@ import java.util.Properties;
 
 /**
  * 配置：.minecraft/config/inkwell.properties
- * 第一次进游戏时自动生成，改完重进游戏生效。
+ * 第一次进游戏时自动生成；游戏里点「设置」也能改（改完立即生效）。
  */
 public final class InkwellConfig {
     private static InkwellConfig instance;
@@ -32,9 +32,11 @@ public final class InkwellConfig {
     public boolean displayPaging = true;
     /** 读 .md 时自动清掉 Markdown 语法 */
     public boolean markdown = true;
+    /** 文本库默认是否递归扫描子文件夹 */
+    public boolean recursive = true;
     /** 打印每个按键事件，排查用 */
     public boolean debug = false;
-    /** 单个 txt 文件大小上限（字节） */
+    /** 单个文件大小上限（字节） */
     public long maxFileBytes = 4L * 1024L * 1024L;
 
     private boolean loaded;
@@ -82,31 +84,51 @@ public final class InkwellConfig {
         maxFileBytes = longOf(props, "maxFileBytes", maxFileBytes);
         displayPaging = boolOf(props, "displayPaging", displayPaging);
         markdown = boolOf(props, "markdown", markdown);
+        recursive = boolOf(props, "recursive", recursive);
         debug = boolOf(props, "debug", debug);
     }
 
-    private void save() {
+    /** 写回配置文件（游戏里改完会调它）。 */
+    public void save() {
         Properties props = new Properties();
         props.setProperty("folder", folder);
         props.setProperty("file", file);
         props.setProperty("charsPerPage", Integer.toString(charsPerPage));
         props.setProperty("linesPerPage", Integer.toString(linesPerPage));
         props.setProperty("maxPages", Integer.toString(maxPages));
-        props.setProperty("pageBreakLine", pageBreakLine);
+        props.setProperty("pageBreakLine", pageBreakLine == null ? "" : pageBreakLine);
         props.setProperty("longClipboardOnly", Boolean.toString(longClipboardOnly));
         props.setProperty("maxFileBytes", Long.toString(maxFileBytes));
         props.setProperty("displayPaging", Boolean.toString(displayPaging));
         props.setProperty("markdown", Boolean.toString(markdown));
+        props.setProperty("recursive", Boolean.toString(recursive));
         props.setProperty("debug", Boolean.toString(debug));
         try {
             Path p = configPath();
             Files.createDirectories(p.getParent());
             try (OutputStream out = Files.newOutputStream(p)) {
-                props.store(out, "inkwell - 书与笔导入，改完重进游戏生效");
+                props.store(out, "inkwell - 书与笔导入；游戏里点「设置」改，改完立即生效");
             }
         } catch (IOException e) {
             Inkwell.log("写配置失败：" + e);
         }
+    }
+
+    /** 恢复出厂设置（不写盘）。 */
+    public void resetToDefaults() {
+        InkwellConfig d = new InkwellConfig();
+        folder = d.folder;
+        file = d.file;
+        charsPerPage = d.charsPerPage;
+        linesPerPage = d.linesPerPage;
+        maxPages = d.maxPages;
+        pageBreakLine = d.pageBreakLine;
+        longClipboardOnly = d.longClipboardOnly;
+        displayPaging = d.displayPaging;
+        markdown = d.markdown;
+        recursive = d.recursive;
+        debug = d.debug;
+        maxFileBytes = d.maxFileBytes;
     }
 
     private static int intOf(Properties p, String k, int def) {
@@ -129,7 +151,7 @@ public final class InkwellConfig {
         return Boolean.parseBoolean(p.getProperty(k, Boolean.toString(def)).trim());
     }
 
-    private static int clamp(int v, int lo, int hi) {
+    public static int clamp(int v, int lo, int hi) {
         return Math.max(lo, Math.min(hi, v));
     }
 }

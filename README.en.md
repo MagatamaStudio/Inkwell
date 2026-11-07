@@ -28,7 +28,7 @@ pixel measurements, so every page actually fits on screen.
 ## Install
 
 1. Install **Fabric Loader 0.19.5+** for Minecraft 26.3 (Java 25)
-2. Drop `inkwell-1.2.0.jar` into `.minecraft/mods/`
+2. Drop `inkwell-1.2.1.jar` into `.minecraft/mods/`
 3. Launch — the log shows `Inkwell 已加载 | ...` (Inkwell loaded)
 
 No Fabric API needed. Nothing goes on the server.
@@ -105,7 +105,7 @@ Markdown conversion table, capacity, FAQ).
 ./gradlew build        # Windows: gradlew.bat build
 ```
 
-The jar lands in `build/libs/inkwell-1.2.0.jar`.
+The jar lands in `build/libs/inkwell-1.2.1.jar`.
 
 > **About mappings:** Minecraft 26.3 ships **unobfuscated** — Mojang's version JSON no longer
 > includes `client_mappings`, and Fabric's intermediary table is empty (header only). So no

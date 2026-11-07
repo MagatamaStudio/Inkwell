@@ -14,7 +14,7 @@ Minecraft **26.3** · Fabric **纯客户端** · 作者 **KujouShiori**
 |---|---|
 | **文本库** | 列出 `.minecraft/inkwell/` 下的 txt / md，实时搜索文件名、按名称/时间/大小排序，右侧预览首屏 |
 | **文件夹浏览** | 支持子文件夹：`inkwell/小说A/ch01.md`、`inkwell/小说B/ch01.md` 各自成组，点文件夹进入，面包屑显示当前位置 |
-| **递归扫描** | 一键把子文件夹里的文件全平铺出来（按相对路径排序），找文件不用一层层点 |
+| **递归扫描（可选）** | 默认像文件管理器一样逐层浏览；需要一次看全时打开「递归」，文件会**按文件夹分组**列出来（每组一个标题行），不会糊成一片 |
 | **游戏内设置** | 书页右侧「设置」按钮，目录、翻页标记、每页行数/字数、页数上限、Markdown、递归等都能直接改，保存即生效 |
 | **Markdown** | `.md` 自动转纯文本：标题、加粗、斜体、行内代码、链接、列表、引用、代码块、表格全部清掉，单独一行的 `---` 保留为**翻页标记** |
 | **按显示分页** | 用游戏字体实测每行宽度（114px）和行高，一页 14 行，保证书里每一页都完整可见 |
@@ -25,7 +25,7 @@ Minecraft **26.3** · Fabric **纯客户端** · 作者 **KujouShiori**
 ## 安装
 
 1. 装好 **Fabric Loader 0.19.5+**（Minecraft 26.3，Java 25）
-2. 把 `inkwell-1.2.1.jar` 丢进 `.minecraft/mods/`
+2. 把 `inkwell-1.3.0.jar` 丢进 `.minecraft/mods/`
 3. 启动游戏，日志里会出现 `Inkwell 已加载 | …`
 
 不需要装 Fabric API，也不用装服务端。
@@ -75,7 +75,7 @@ inkwell/
 folder=inkwell            # txt/md 所在文件夹（相对游戏目录）
 file=book.txt             # Ctrl+Alt+V 导入的文件名
 
-recursive=true            # 文本库默认递归扫描子文件夹
+recursive=false           # 文本库默认逐层浏览；true = 递归平铺（按文件夹分组显示）
 displayPaging=true        # 按实际显示宽度分页（推荐）；false 只按字符数
 charsPerPage=1024         # 每页字符硬上限（原版编辑框上限）
 linesPerPage=14           # 每页行数（原版 126 / 9 = 14）
@@ -105,7 +105,7 @@ debug=false               # 打印每个按键事件
 ./gradlew build          # Windows: gradlew.bat build
 ```
 
-产物在 `build/libs/inkwell-1.2.1.jar`。
+产物在 `build/libs/inkwell-1.3.0.jar`。
 
 > **关于映射**：Minecraft 26.3 的客户端**本身没有混淆**——Mojang 的 version json 里已经没有
 > `client_mappings`，Fabric 的 intermediary 也是只有表头的空表。所以本项目不需要 Remap：

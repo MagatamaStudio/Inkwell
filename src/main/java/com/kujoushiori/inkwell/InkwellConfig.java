@@ -33,7 +33,7 @@ public final class InkwellConfig {
     /** 读 .md 时自动清掉 Markdown 语法 */
     public boolean markdown = true;
     /** 文本库默认是否递归扫描子文件夹 */
-    public boolean recursive = true;
+    public boolean recursive = false;
     /** 打印每个按键事件，排查用 */
     public boolean debug = false;
     /** 单个文件大小上限（字节） */

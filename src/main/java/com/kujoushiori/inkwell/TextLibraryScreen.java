@@ -24,7 +24,20 @@ public class TextLibraryScreen extends Screen {
     private static final int LIST_X = 16;
     private static final int LIST_W = 150;
 
-    private record Entry(Path path, boolean dir) {
+    private enum Kind { DIR, FILE, HEADER }
+
+    private record Entry(Path path, Kind kind) {
+        boolean dir() {
+            return kind == Kind.DIR;
+        }
+
+        boolean header() {
+            return kind == Kind.HEADER;
+        }
+
+        boolean file() {
+            return kind == Kind.FILE;
+        }
     }
 
     private final BookEditScreen book;
@@ -57,35 +70,44 @@ public class TextLibraryScreen extends Screen {
     private void refreshView() {
         view.clear();
         String f = filter == null ? "" : filter.trim().toLowerCase();
+        boolean searching = !f.isEmpty();
 
         if (!recursive) {
             for (Path d : Inkwell.listDirs(dir)) {
                 String name = d.getFileName().toString();
                 if (f.isEmpty() || name.toLowerCase().contains(f)) {
-                    view.add(new Entry(d, true));
+                    view.add(new Entry(d, Kind.DIR));
                 }
             }
         }
-        for (Path p : Inkwell.listFiles(dir, recursive)) {
-            String name = recursive ? Inkwell.relativePath(dir, p) : p.getFileName().toString();
-            if (f.isEmpty() || name.toLowerCase().contains(f)) {
-                view.add(new Entry(p, false));
+
+        List<Path> files = Inkwell.listFiles(dir, recursive);
+        if (recursive && !searching) {
+            // 递归模式：按文件夹分组，每组前面加一个标题行
+            files.sort(Comparator.comparing(this::parentLabel).thenComparing(this::fileKey));
+            Path lastParent = null;
+            for (Path p : files) {
+                Path parent = p.getParent();
+                if (lastParent == null || !parent.equals(lastParent)) {
+                    view.add(new Entry(parent, Kind.HEADER));
+                    lastParent = parent;
+                }
+                view.add(new Entry(p, Kind.FILE));
             }
+        } else {
+            for (Path p : files) {
+                String name = searching ? Inkwell.relativePath(dir, p) : p.getFileName().toString();
+                if (searching && !name.toLowerCase().contains(f)) {
+                    continue;
+                }
+                view.add(new Entry(p, Kind.FILE));
+            }
+            view.sort(Comparator.comparing((Entry e) -> fileKey(e.path())));
         }
 
-        Comparator<Entry> cmp;
-        switch (sortMode) {
-            case 1:
-                cmp = Comparator.comparingLong((Entry e) -> modified(e.path())).reversed();
-                break;
-            case 2:
-                cmp = Comparator.comparingLong((Entry e) -> size(e.path())).reversed();
-                break;
-            default:
-                cmp = Comparator.comparing(e -> label(e).toLowerCase());
+        if (!recursive) {
+            view.sort(Comparator.comparing((Entry e) -> !e.dir()).thenComparing(e -> fileKey(e.path())));
         }
-        // 文件夹永远排在前面
-        view.sort(Comparator.comparing((Entry e) -> !e.dir()).thenComparing(cmp));
 
         if (selected >= view.size()) {
             selected = view.isEmpty() ? -1 : 0;
@@ -93,13 +115,55 @@ public class TextLibraryScreen extends Screen {
         if (page * PER_PAGE > view.size()) {
             page = 0;
         }
+        // 选中项落在分组标题上时，自动挪到下一个文件
+        while (selected >= 0 && selected < view.size() && !view.get(selected).file()) {
+            selected++;
+        }
+        if (selected >= view.size()) {
+            selected = lastFileIndex();
+        }
+    }
+
+    private int lastFileIndex() {
+        for (int i = view.size() - 1; i >= 0; i--) {
+            if (view.get(i).file()) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private String parentLabel(Path p) {
+        Path parent = p.getParent();
+        if (parent == null || parent.equals(dir)) {
+            return "";
+        }
+        return Inkwell.relativePath(dir, parent).toLowerCase();
+    }
+
+    private String fileKey(Path p) {
+        switch (sortMode) {
+            case 1:
+                return String.format("%020d", Long.MAX_VALUE - modified(p));
+            case 2:
+                return String.format("%020d", Long.MAX_VALUE - size(p));
+            default:
+                return p.getFileName().toString().toLowerCase();
+        }
     }
 
     private String label(Entry e) {
+        if (e.header()) {
+            Path parent = e.path();
+            if (parent == null || parent.equals(dir)) {
+                return "▾ " + dir.getFileName() + "/";
+            }
+            return "▾ " + Inkwell.relativePath(dir, parent) + "/";
+        }
         if (e.dir()) {
             return "[" + e.path().getFileName() + "]";
         }
-        return recursive ? Inkwell.relativePath(dir, e.path()) : e.path().getFileName().toString();
+        return e.path().getFileName().toString();
     }
 
     private static long modified(Path p) {
@@ -124,7 +188,7 @@ public class TextLibraryScreen extends Screen {
 
     private Path selectedFile() {
         Entry e = selectedEntry();
-        return e != null && !e.dir() ? e.path() : null;
+        return e != null && e.file() ? e.path() : null;
     }
 
     // ---------------------------------------------------------------- 布局
@@ -225,8 +289,9 @@ public class TextLibraryScreen extends Screen {
                 text = text.substring(0, 17) + "…";
             }
             addRenderableWidget(Button.builder(Component.literal(text), b -> {
-                if (e.dir()) {
+                if (e.dir() || e.header()) {
                     dir = e.path();
+                    recursive = false;
                     selected = -1;
                     page = 0;
                     refreshView();
@@ -332,8 +397,9 @@ public class TextLibraryScreen extends Screen {
                         left, top, 0xFFA0A0A0);
                 return;
             }
-            if (sel.dir()) {
-                g.text(this.font, Component.literal("文件夹：" + sel.path().getFileName()), left, top, 0xFFFFE07A);
+            if (sel.dir() || sel.header()) {
+                Path folder = sel.path();
+                g.text(this.font, Component.literal("文件夹：" + folder.getFileName()), left, top, 0xFFFFE07A);
                 g.text(this.font, Component.literal("点一下进入这个文件夹"), left, top + 14, 0xFF9AD0FF);
                 return;
             }

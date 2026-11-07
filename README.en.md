@@ -16,7 +16,7 @@ pixel measurements, so every page actually fits on screen.
 |---|---|
 | **Text library** | Lists `.txt` / `.md` files under `.minecraft/inkwell/`, live filename search, sort by name / modified time / size, first-page preview |
 | **Folder browsing** | Subfolders work: `inkwell/novel-a/ch01.md`, `inkwell/novel-b/ch01.md`. Click a folder to enter, breadcrumb shows where you are |
-| **Recursive scan** | One toggle flattens every file in subfolders (sorted by relative path) |
+| **Recursive scan (optional)** | Off by default — browse folder by folder. Turn it on to see everything at once, **grouped by folder** with a header per group |
 | **Markdown** | `.md` is converted to plain text — headings, bold, italics, inline code, links, lists, quotes, fenced code and tables are stripped; a lone `---` becomes a **page break** |
 | **Display-aware pagination** | Measures with the game font: 114 px wide, 14 lines per page |
 | **Overwrite / append** | Write from the current page, or append at the end; a confirmation dialog explains exactly what gets replaced |
@@ -28,7 +28,7 @@ pixel measurements, so every page actually fits on screen.
 ## Install
 
 1. Install **Fabric Loader 0.19.5+** for Minecraft 26.3 (Java 25)
-2. Drop `inkwell-1.2.1.jar` into `.minecraft/mods/`
+2. Drop `inkwell-1.3.0.jar` into `.minecraft/mods/`
 3. Launch — the log shows `Inkwell 已加载 | ...` (Inkwell loaded)
 
 No Fabric API needed. Nothing goes on the server.
@@ -70,7 +70,7 @@ inkwell/
 ```properties
 folder=inkwell            # text folder, relative to the game directory
 file=book.txt             # file used by Ctrl+Alt+V
-recursive=true            # text library scans subfolders by default
+recursive=false           # browse folder by folder; true = flat list grouped by folder
 displayPaging=true        # paginate by real pixel width (recommended)
 charsPerPage=1024         # hard character cap per page (vanilla editor limit)
 linesPerPage=14           # lines per page (vanilla: 126 / 9 = 14)
@@ -105,7 +105,7 @@ Markdown conversion table, capacity, FAQ).
 ./gradlew build        # Windows: gradlew.bat build
 ```
 
-The jar lands in `build/libs/inkwell-1.2.1.jar`.
+The jar lands in `build/libs/inkwell-1.3.0.jar`.
 
 > **About mappings:** Minecraft 26.3 ships **unobfuscated** — Mojang's version JSON no longer
 > includes `client_mappings`, and Fabric's intermediary table is empty (header only). So no

@@ -75,7 +75,7 @@ public class SettingsScreen extends Screen {
         toggle(col2, ty, "按显示宽度分页", displayPaging, v -> displayPaging = v);
         toggle(col2, ty + rowStep, "转换 Markdown", markdown, v -> markdown = v);
         toggle(col2, ty + rowStep * 2, "长文本才接管 Ctrl+V", longOnly, v -> longOnly = v);
-        toggle(col2, ty + rowStep * 3, "文本库递归扫描", recursive, v -> recursive = v);
+        toggle(col2, ty + rowStep * 3, "文本库平铺（递归）", recursive, v -> recursive = v);
         toggle(col2, ty + rowStep * 4, "调试日志", debug, v -> debug = v);
 
         int bottom = this.height - 30;

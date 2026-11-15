@@ -1,9 +1,10 @@
 package com.kujoushiori.inkwell;
 
-import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 /**
  * 把一整段文字切成若干“书页”。
@@ -90,16 +91,45 @@ public final class TextPager {
         cur.setLength(0);
     }
 
-    public static String readUtf8(Path p, long maxBytes) throws IOException {
-        if (Files.size(p) > maxBytes) {
-            throw new IOException("文件过大：" + Files.size(p) + " 字节（上限 " + maxBytes + "）");
+    /** 解码结果，encoding 用来在日志里说明为什么不是 UTF-8。 */
+    public record Decoded(String text, String encoding) {
+    }
+
+    /**
+     * 文本文件解码：先认 BOM，再严格按 UTF-8 试；不是合法 UTF-8 就按 GB18030（中文 Windows 的 ANSI）读。
+     * 记事本默认存 ANSI / 带 BOM 的 Unicode，直接当 UTF-8 读会整篇乱码。
+     */
+    public static Decoded decode(byte[] b) {
+        if (b.length >= 3 && (b[0] & 0xFF) == 0xEF && (b[1] & 0xFF) == 0xBB && (b[2] & 0xFF) == 0xBF) {
+            return new Decoded(new String(b, 3, b.length - 3, StandardCharsets.UTF_8), "UTF-8");
         }
-        String text = new String(Files.readAllBytes(p), StandardCharsets.UTF_8);
-        // 去掉 Windows 记事本写出的 UTF-8 BOM，否则第一页开头会多一个看不见的字符
-        if (!text.isEmpty() && text.charAt(0) == '\uFEFF') {
-            text = text.substring(1);
+        if (b.length >= 2 && (b[0] & 0xFF) == 0xFF && (b[1] & 0xFF) == 0xFE) {
+            return new Decoded(new String(b, 2, b.length - 2, StandardCharsets.UTF_16LE), "UTF-16LE");
         }
-        return text;
+        if (b.length >= 2 && (b[0] & 0xFF) == 0xFE && (b[1] & 0xFF) == 0xFF) {
+            return new Decoded(new String(b, 2, b.length - 2, StandardCharsets.UTF_16BE), "UTF-16BE");
+        }
+        String utf8 = strictDecode(b, StandardCharsets.UTF_8);
+        if (utf8 != null) {
+            return new Decoded(utf8, "UTF-8");
+        }
+        String gb = strictDecode(b, Charset.forName("GB18030"));
+        if (gb != null) {
+            return new Decoded(gb, "GB18030");
+        }
+        return new Decoded(new String(b, StandardCharsets.UTF_8), "UTF-8");
+    }
+
+    private static String strictDecode(byte[] b, Charset cs) {
+        try {
+            return cs.newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(b))
+                    .toString();
+        } catch (CharacterCodingException e) {
+            return null;
+        }
     }
 
     // ---------------------------------------------------------------- 自测

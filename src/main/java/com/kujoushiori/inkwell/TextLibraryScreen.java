@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
+import com.mojang.blaze3d.Blaze3D;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -326,6 +328,10 @@ public class TextLibraryScreen extends Screen {
                     .setScreenAndShow(new SettingsScreen(this)))
                     .pos(settingsX, 10).size(settingsW, 18).build());
 
+            int openW = 72;
+            addRenderableWidget(Button.builder(Component.literal("打开文件夹"), b -> openFolder())
+                    .pos(Math.max(LIST_X, settingsX - 4 - openW), 10).size(openW, 18).build());
+
             buildList();
             buildBottomBar();
         } catch (Throwable t) {
@@ -508,6 +514,15 @@ public class TextLibraryScreen extends Screen {
                 Minecraft.getInstance().setScreenAndShow(this);
             }
         }, Component.literal("确认导入"), Component.literal(msg)));
+    }
+
+    private void openFolder() {
+        try {
+            Files.createDirectories(dir);
+            Blaze3D.openPath(dir);
+        } catch (Throwable t) {
+            Inkwell.log("打开文件夹失败：" + t);
+        }
     }
 
     private void back() {

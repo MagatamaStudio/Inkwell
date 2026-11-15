@@ -110,7 +110,16 @@ public final class Inkwell {
             return null;
         }
         try {
-            String text = TextPager.readUtf8(abs, cfg.maxFileBytes);
+            long size = Files.size(abs);
+            if (size > cfg.maxFileBytes) {
+                log("文件过大：" + size + " 字节（上限 " + cfg.maxFileBytes + "）");
+                return null;
+            }
+            TextPager.Decoded decoded = TextPager.decode(Files.readAllBytes(abs));
+            if (!"UTF-8".equals(decoded.encoding())) {
+                log(abs.getFileName() + " 不是 UTF-8，已按 " + decoded.encoding() + " 读取");
+            }
+            String text = decoded.text();
             if (cfg.markdown && isMarkdown(abs.getFileName().toString())) {
                 String plain = Markdown.toPlain(text);
                 log("已把 " + abs.getFileName() + " 的 Markdown 语法清掉（" + text.length()

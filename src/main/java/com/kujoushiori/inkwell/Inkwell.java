@@ -29,22 +29,11 @@ public final class Inkwell {
         }
     }
 
-    private static java.lang.reflect.Field SCREEN_FIELD;
-
-    /** 当前打开的界面。26.3 的 Minecraft 里没有公开的 screen 字段，反射找一次缓存起来。 */
+    /** 当前打开的界面。26.3 里界面挂在 Minecraft.gui 上（Gui.screen()），Minecraft 本身没有 Screen 字段。 */
     public static net.minecraft.client.gui.screens.Screen currentScreen() {
         try {
-            if (SCREEN_FIELD == null) {
-                for (java.lang.reflect.Field f : Minecraft.class.getDeclaredFields()) {
-                    if (net.minecraft.client.gui.screens.Screen.class.isAssignableFrom(f.getType())) {
-                        f.setAccessible(true);
-                        SCREEN_FIELD = f;
-                        break;
-                    }
-                }
-            }
-            return SCREEN_FIELD == null ? null
-                    : (net.minecraft.client.gui.screens.Screen) SCREEN_FIELD.get(Minecraft.getInstance());
+            var gui = Minecraft.getInstance().gui;
+            return gui == null ? null : gui.screen();
         } catch (Throwable t) {
             return null;
         }

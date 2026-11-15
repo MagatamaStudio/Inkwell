@@ -18,7 +18,8 @@ public final class Markdown {
     private static final Pattern HR = Pattern.compile("^\\s{0,3}(\\*\\s*){3,}$|^\\s{0,3}(_\\s*){3,}$");
     private static final Pattern FENCE = Pattern.compile("^\\s*(```|~~~).*$");
     private static final Pattern IMAGE = Pattern.compile("!\\[([^\\]]*)]\\([^)]*\\)");
-    private static final Pattern LINK = Pattern.compile("\\[([^\\]]+)]\\([^)]*\\)");
+    /** 允许 URL 里出现一层括号，如 .../Foo_(bar) */
+    private static final Pattern LINK = Pattern.compile("\\[([^\\]]+)]\\((?:[^()]|\\([^()]*\\))*\\)");
     private static final Pattern AUTOLINK = Pattern.compile("<((?:https?|ftp)://[^>]+)>");
     private static final Pattern INLINE_CODE = Pattern.compile("`([^`]+)`");
     private static final Pattern BOLD = Pattern.compile("(\\*\\*|__)(.+?)\\1");

@@ -41,7 +41,7 @@ public class TextLibraryScreen extends Screen {
     }
 
     private final BookEditScreen book;
-    private final Path root;
+    private Path root;
     private Path dir;
 
     private final List<Entry> view = new ArrayList<>();
@@ -56,6 +56,13 @@ public class TextLibraryScreen extends Screen {
     private int chars;
     private int pages;
 
+    // 布局（init 里按窗口算，绘制和列表复用）
+    private boolean compact;
+    private int listTop;
+    private int rowStep;
+    private int rowH;
+    private int bottomY;
+
     public TextLibraryScreen(BookEditScreen book) {
         super(Component.literal("文本库"));
         this.book = book;
@@ -66,8 +73,24 @@ public class TextLibraryScreen extends Screen {
         refreshView();
     }
 
+    /** 从设置界面回来后重新读配置（目录 / 递归都可能变了）。 */
+    public void reloadConfig() {
+        InkwellConfig cfg = InkwellConfig.get();
+        this.root = Inkwell.root();
+        this.recursive = cfg.recursive;
+        this.dir = root;
+        this.filter = "";
+        this.selected = -1;
+        this.page = 0;
+        this.appendMode = false;
+        refreshView();
+        loadPreview();
+        rebuildWidgets();
+    }
+
     // ---------------------------------------------------------------- 列表
     private void refreshView() {
+        Path keep = selectedFile();
         view.clear();
         String f = filter == null ? "" : filter.trim().toLowerCase();
         boolean searching = !f.isEmpty();
@@ -109,11 +132,10 @@ public class TextLibraryScreen extends Screen {
             view.sort(Comparator.comparing((Entry e) -> !e.dir()).thenComparing(e -> fileKey(e.path())));
         }
 
-        if (selected >= view.size()) {
-            selected = view.isEmpty() ? -1 : 0;
-        }
-        if (page * PER_PAGE > view.size()) {
-            page = 0;
+        // 按路径恢复选中项；原文件被过滤掉就取消选中，避免“预览和选中项不是同一篇”
+        selected = keep == null ? -1 : indexOfPath(keep);
+        if (selected < 0) {
+            selected = -1;
         }
         // 选中项落在分组标题上时，自动挪到下一个文件
         while (selected >= 0 && selected < view.size() && !view.get(selected).file()) {
@@ -122,6 +144,21 @@ public class TextLibraryScreen extends Screen {
         if (selected >= view.size()) {
             selected = lastFileIndex();
         }
+
+        int pageCount = (view.size() + PER_PAGE - 1) / PER_PAGE;
+        if (page >= pageCount) {
+            page = Math.max(0, pageCount - 1);
+        }
+    }
+
+    private int indexOfPath(Path p) {
+        for (int i = 0; i < view.size(); i++) {
+            Entry e = view.get(i);
+            if (e.file() && e.path().equals(p)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private int lastFileIndex() {
@@ -192,48 +229,148 @@ public class TextLibraryScreen extends Screen {
     }
 
     // ---------------------------------------------------------------- 布局
+    private void computeLayout() {
+        compact = this.width < 520;
+        listTop = compact ? 72 : 52;
+        bottomY = this.height - 30;
+        int usable = Math.max(PER_PAGE * 12, bottomY - 4 - listTop);
+        rowStep = Math.max(12, Math.min(22, usable / PER_PAGE));
+        rowH = Math.max(10, Math.min(20, rowStep - 2));
+    }
+
     @Override
     protected void init() {
         try {
+            computeLayout();
             int top = 28;
-            EditBox search = new EditBox(this.font, LIST_X, top, 140, 18, Component.literal("搜索"));
-            search.setValue(filter);
-            search.setHint(Component.literal("搜索文件名…"));
-            search.setResponder(s -> {
-                filter = s;
-                page = 0;
-                refreshView();
-                rebuildWidgets();
-            });
-            addRenderableWidget(search);
+            int settingsW = 58;
+            int settingsX = this.width - 16 - settingsW;
 
-            addRenderableWidget(Button.builder(Component.literal("排序：" + sortName()), b -> {
-                sortMode = (sortMode + 1) % 3;
-                refreshView();
-                rebuildWidgets();
-            }).pos(LIST_X + 144, top).size(92, 18).build());
+            if (compact) {
+                // 窄窗口：搜索框 + 设置一行，排序/写入/递归第二行
+                int searchW = Math.max(100, settingsX - 8 - LIST_X);
+                EditBox search = new EditBox(this.font, LIST_X, top, searchW, 18, Component.literal("搜索"));
+                search.setValue(filter);
+                search.setHint(Component.literal("搜索文件名…"));
+                search.setResponder(s -> {
+                    filter = s;
+                    page = 0;
+                    refreshView();
+                    loadPreview();
+                    rebuildWidgets();
+                });
+                addRenderableWidget(search);
 
-            addRenderableWidget(Button.builder(
-                    Component.literal(appendMode ? "写入：末尾追加" : "写入：从当前页"), b -> {
-                        appendMode = !appendMode;
-                        rebuildWidgets();
-                    }).pos(LIST_X + 240, top).size(112, 18).build());
+                int row2 = top + 22;
+                int sortW = 84;
+                int recW = 72;
+                int recX = this.width - 16 - recW;
+                int writeX = LIST_X + sortW + 4;
+                int writeW = Math.max(80, recX - 4 - writeX);
+                addRenderableWidget(Button.builder(Component.literal("排序：" + sortName()), b -> {
+                    sortMode = (sortMode + 1) % 3;
+                    refreshView();
+                    loadPreview();
+                    rebuildWidgets();
+                }).pos(LIST_X, row2).size(sortW, 18).build());
+                addRenderableWidget(Button.builder(
+                        Component.literal(appendMode ? "写入：末尾追加" : "写入：从当前页"), b -> {
+                            appendMode = !appendMode;
+                            rebuildWidgets();
+                        }).pos(writeX, row2).size(writeW, 18).build());
+                addRenderableWidget(Button.builder(Component.literal(recursive ? "递归：开" : "递归：关"), b -> {
+                    recursive = !recursive;
+                    selected = -1;
+                    page = 0;
+                    refreshView();
+                    loadPreview();
+                    rebuildWidgets();
+                }).pos(recX, row2).size(recW, 18).build());
+            } else {
+                EditBox search = new EditBox(this.font, LIST_X, top, 140, 18, Component.literal("搜索"));
+                search.setValue(filter);
+                search.setHint(Component.literal("搜索文件名…"));
+                search.setResponder(s -> {
+                    filter = s;
+                    page = 0;
+                    refreshView();
+                    loadPreview();
+                    rebuildWidgets();
+                });
+                addRenderableWidget(search);
 
-            addRenderableWidget(Button.builder(Component.literal(recursive ? "递归：开" : "递归：关"), b -> {
-                recursive = !recursive;
-                selected = -1;
-                page = 0;
-                refreshView();
-                rebuildWidgets();
-            }).pos(LIST_X + 356, top).size(76, 18).build());
+                addRenderableWidget(Button.builder(Component.literal("排序：" + sortName()), b -> {
+                    sortMode = (sortMode + 1) % 3;
+                    refreshView();
+                    loadPreview();
+                    rebuildWidgets();
+                }).pos(LIST_X + 144, top).size(92, 18).build());
+
+                addRenderableWidget(Button.builder(
+                        Component.literal(appendMode ? "写入：末尾追加" : "写入：从当前页"), b -> {
+                            appendMode = !appendMode;
+                            rebuildWidgets();
+                        }).pos(LIST_X + 240, top).size(112, 18).build());
+
+                addRenderableWidget(Button.builder(Component.literal(recursive ? "递归：开" : "递归：关"), b -> {
+                    recursive = !recursive;
+                    selected = -1;
+                    page = 0;
+                    refreshView();
+                    loadPreview();
+                    rebuildWidgets();
+                }).pos(LIST_X + 356, top).size(76, 18).build());
+            }
 
             addRenderableWidget(Button.builder(Component.literal("设置"), b -> Minecraft.getInstance()
                     .setScreenAndShow(new SettingsScreen(this)))
-                    .pos(this.width - 68, 10).size(58, 18).build());
+                    .pos(settingsX, 10).size(settingsW, 18).build());
 
             buildList();
+            buildBottomBar();
+        } catch (Throwable t) {
+            Inkwell.log("文本库 init 失败：" + t);
+        }
+    }
 
-            int bottom = this.height - 32;
+    private void buildBottomBar() {
+        boolean paging = view.size() > PER_PAGE;
+        if (compact) {
+            int importW = 92;
+            int importX = this.width - 16 - importW;
+            int backW = 56;
+            int backX = importX - 4 - backW;
+
+            int x = LIST_X;
+            if (!dir.equals(root)) {
+                addRenderableWidget(Button.builder(Component.literal("←上级"), b -> {
+                    Path up = dir.getParent();
+                    dir = (up != null && up.startsWith(root)) ? up : root;
+                    selected = -1;
+                    page = 0;
+                    refreshView();
+                    loadPreview();
+                    rebuildWidgets();
+                }).pos(x, bottomY).size(44, 20).build());
+                x += 48;
+            }
+            if (paging) {
+                if (page > 0) {
+                    addRenderableWidget(Button.builder(Component.literal("上一页"), b -> turnPage(-1))
+                            .pos(x, bottomY).size(40, 20).build());
+                    x += 44;
+                }
+                if ((page + 1) * PER_PAGE < view.size()) {
+                    addRenderableWidget(Button.builder(Component.literal("下一页"), b -> turnPage(1))
+                            .pos(x, bottomY).size(40, 20).build());
+                }
+            }
+            addRenderableWidget(Button.builder(Component.literal("返回"), b -> back())
+                    .pos(backX, bottomY).size(backW, 20).build());
+            addRenderableWidget(Button.builder(Component.literal("导入到书里"), b -> askImport())
+                    .pos(importX, bottomY).size(importW, 20).build());
+        } else {
+            int px = LIST_X;
             if (!dir.equals(root)) {
                 addRenderableWidget(Button.builder(Component.literal("← 上一级"), b -> {
                     Path up = dir.getParent();
@@ -241,33 +378,36 @@ public class TextLibraryScreen extends Screen {
                     selected = -1;
                     page = 0;
                     refreshView();
+                    loadPreview();
                     rebuildWidgets();
-                }).pos(LIST_X, bottom).size(72, 20).build());
+                }).pos(LIST_X, bottomY).size(72, 20).build());
+                px = LIST_X + 80;
             }
-
-            addRenderableWidget(Button.builder(Component.literal("导入到书里"), b -> askImport())
-                    .pos(this.width - 132, bottom).size(120, 20).build());
-            addRenderableWidget(Button.builder(Component.literal("返回"), b -> back())
-                    .pos(this.width - 262, bottom).size(120, 20).build());
-
-            if (view.size() > PER_PAGE) {
-                int px = LIST_X + 80;
+            if (paging) {
                 if (page > 0) {
-                    addRenderableWidget(Button.builder(Component.literal("上一页"), b -> {
-                        page--;
-                        rebuildWidgets();
-                    }).pos(px, bottom).size(52, 20).build());
+                    addRenderableWidget(Button.builder(Component.literal("上一页"), b -> turnPage(-1))
+                            .pos(px, bottomY).size(52, 20).build());
+                    px += 56;
                 }
                 if ((page + 1) * PER_PAGE < view.size()) {
-                    addRenderableWidget(Button.builder(Component.literal("下一页"), b -> {
-                        page++;
-                        rebuildWidgets();
-                    }).pos(px + 56, bottom).size(52, 20).build());
+                    addRenderableWidget(Button.builder(Component.literal("下一页"), b -> turnPage(1))
+                            .pos(px, bottomY).size(52, 20).build());
                 }
             }
-        } catch (Throwable t) {
-            Inkwell.log("文本库 init 失败：" + t);
+            addRenderableWidget(Button.builder(Component.literal("导入到书里"), b -> askImport())
+                    .pos(this.width - 132, bottomY).size(120, 20).build());
+            addRenderableWidget(Button.builder(Component.literal("返回"), b -> back())
+                    .pos(this.width - 262, bottomY).size(120, 20).build());
         }
+    }
+
+    private void turnPage(int delta) {
+        page += delta;
+        if (selected >= 0 && (selected < page * PER_PAGE || selected >= (page + 1) * PER_PAGE)) {
+            selected = -1;
+            loadPreview();
+        }
+        rebuildWidgets();
     }
 
     private String sortName() {
@@ -295,12 +435,13 @@ public class TextLibraryScreen extends Screen {
                     selected = -1;
                     page = 0;
                     refreshView();
+                    loadPreview();
                 } else {
                     selected = idx;
                     loadPreview();
                 }
                 rebuildWidgets();
-            }).pos(LIST_X, 52 + (i - from) * 22).size(LIST_W, 20).build());
+            }).pos(LIST_X, listTop + (i - from) * rowStep).size(LIST_W, rowH).build());
         }
     }
 
@@ -379,9 +520,9 @@ public class TextLibraryScreen extends Screen {
         super.extractRenderState(g, mouseX, mouseY, partial);
         try {
             int left = 180;
-            int top = 52;
+            int top = listTop;
             int right = this.width - 16;
-            int bottom = this.height - 44;
+            int bottom = bottomY - 8;
 
             g.fill(left - 4, top - 4, right, bottom, 0xC0101010);
 

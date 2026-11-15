@@ -48,6 +48,7 @@ public final class BookWriter {
         }
         BookEditScreenAccessor acc = (BookEditScreenAccessor) screen;
         List<String> pages = acc.inkwellPages();
+        List<String> items = splitOverlong(newPages);
         int current = acc.inkwellCurrentPage();
 
         int start = Math.max(0, Math.min(current, Math.max(0, pages.size())));
@@ -55,10 +56,10 @@ public final class BookWriter {
             pages.remove(pages.size() - 1);
         }
         int room = MAX_PAGES - pages.size();
-        int add = Math.min(room, newPages.size());
-        pages.addAll(newPages.subList(0, add));
-        if (add < newPages.size()) {
-            Inkwell.log("超过 " + MAX_PAGES + " 页上限，" + (newPages.size() - add) + " 页被丢掉");
+        int add = Math.min(room, items.size());
+        pages.addAll(items.subList(0, add));
+        if (add < items.size()) {
+            Inkwell.log("超过 " + MAX_PAGES + " 页上限，" + (items.size() - add) + " 页被丢掉");
         }
 
         int page = Math.min(start, pages.size() - 1);
@@ -77,20 +78,40 @@ public final class BookWriter {
         }
         BookEditScreenAccessor acc = (BookEditScreenAccessor) screen;
         List<String> pages = acc.inkwellPages();
+        List<String> items = splitOverlong(newPages);
+
+        // 先丢掉末尾的空页，否则追加的内容会跟正文之间多出一页白纸
+        while (!pages.isEmpty() && pages.get(pages.size() - 1).isEmpty()) {
+            pages.remove(pages.size() - 1);
+        }
         int room = MAX_PAGES - pages.size();
         if (room <= 0) {
             Inkwell.log("已经有 " + pages.size() + " 页了，到上限了");
             return false;
         }
         int startIndex = pages.size();
-        int add = Math.min(room, newPages.size());
-        pages.addAll(newPages.subList(0, add));
-        if (add < newPages.size()) {
-            Inkwell.log("超过 " + MAX_PAGES + " 页上限，" + (newPages.size() - add) + " 页被丢掉");
+        int add = Math.min(room, items.size());
+        pages.addAll(items.subList(0, add));
+        if (add < items.size()) {
+            Inkwell.log("超过 " + MAX_PAGES + " 页上限，" + (items.size() - add) + " 页被丢掉");
         }
         finish(acc, startIndex);
         Inkwell.log("追加 " + add + " 页，当前共 " + pages.size() + " 页");
         return true;
+    }
+
+    /** 单页超过原版 1024 字上限会被编辑框静默截断，先按字符硬切。 */
+    private static List<String> splitOverlong(List<String> src) {
+        List<String> out = new java.util.ArrayList<>();
+        for (String page : src) {
+            String s = page == null ? "" : page;
+            while (s.length() > TextPager.VANILLA_PAGE_CHARS) {
+                out.add(s.substring(0, TextPager.VANILLA_PAGE_CHARS));
+                s = s.substring(TextPager.VANILLA_PAGE_CHARS);
+            }
+            out.add(s);
+        }
+        return out;
     }
 
     private static void finish(BookEditScreenAccessor acc, int page) {
@@ -99,7 +120,7 @@ public final class BookWriter {
         acc.inkwellSetCurrentPage(p);
         MultiLineEditBox box = acc.inkwellPage();
         if (box != null) {
-            box.setValue(pages.get(p));
+            box.setValue(pages.get(p), true);
             int want = pages.get(p).length();
             int got = box.getValue().length();
             if (got < want) {

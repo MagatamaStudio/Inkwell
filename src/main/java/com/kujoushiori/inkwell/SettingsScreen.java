@@ -28,6 +28,12 @@ public class SettingsScreen extends Screen {
     private boolean recursive;
     private boolean debug;
 
+    /** 点了“恢复默认”：下一次 init 用默认值填控件，但不碰内存里的配置。 */
+    private boolean useDefaults;
+
+    /** 第一次 init 才从配置读；之后 rebuildWidgets（点开关）不能把用户刚改的值冲掉。 */
+    private boolean initialized;
+
     // 布局参数（init 里算，render 里复用）
     private int inputX;
     private int inputW;
@@ -35,6 +41,8 @@ public class SettingsScreen extends Screen {
     private int toggleW;
     private int rowY;
     private int rowStep;
+    private int rowH;
+    private int labelX;
 
     public SettingsScreen(Screen parent) {
         super(Component.literal("Inkwell 设置"));
@@ -50,26 +58,55 @@ public class SettingsScreen extends Screen {
     @Override
     protected void init() {
         InkwellConfig c = InkwellConfig.get();
+        boolean defaults = useDefaults;
+        useDefaults = false;
+        InkwellConfig src = defaults ? new InkwellConfig() : c;
+        boolean reseed = defaults || !initialized;
+        initialized = true;
 
-        // 列宽随窗口自适应，窄窗口也放得下
-        inputX = MARGIN + LABEL_W;
-        int half = Math.max(200, this.width / 2);
-        inputW = Math.min(160, Math.max(80, half - inputX - 16));
-        col2 = Math.min(this.width - 16 - 110, Math.max(inputX + inputW + 16, half + 4));
-        toggleW = Math.max(110, Math.min(176, this.width - col2 - 16));
+        // 窄窗口把两列压紧，避免输入框和开关叠在一起
+        boolean narrow = this.width < 400;
+        int margin = narrow ? 16 : MARGIN;
+        int labelW = narrow ? 64 : LABEL_W;
+        inputX = margin + labelW;
+        if (narrow) {
+            inputW = Math.max(64, Math.min(80, this.width - inputX - 16 - 140));
+            col2 = inputX + inputW + 4;
+            toggleW = Math.max(96, this.width - col2 - 16);
+        } else {
+            int half = Math.max(200, this.width / 2);
+            inputW = Math.min(160, Math.max(80, half - inputX - 16));
+            col2 = Math.min(this.width - 16 - 110, Math.max(inputX + inputW + 16, half + 4));
+            toggleW = Math.max(110, Math.min(176, this.width - col2 - 16));
+        }
 
-        // 7 行 + 按钮 + 标题，按窗口高度压缩行距
+        // 7 行 + 按钮 + 标题，行距不小于控件高度，避免纵向重叠
         rowY = 34;
-        rowStep = Math.max(16, Math.min(24, (this.height - 84) / 7));
+        rowStep = Math.max(22, Math.min(24, (this.height - 84) / 7));
+        rowH = Math.max(14, Math.min(18, rowStep - 2));
+        labelX = margin;
 
-        folder = box(inputX, rowY, inputW, c.folder);
-        file = box(inputX, rowY + rowStep, inputW, c.file);
-        breakLine = box(inputX, rowY + rowStep * 2, inputW, c.pageBreakLine == null ? "" : c.pageBreakLine);
-        lines = box(inputX, rowY + rowStep * 3, Math.min(60, inputW), Integer.toString(c.linesPerPage));
-        chars = box(inputX, rowY + rowStep * 4, Math.min(60, inputW), Integer.toString(c.charsPerPage));
-        pages = box(inputX, rowY + rowStep * 5, Math.min(60, inputW), Integer.toString(c.maxPages));
+        folder = box(inputX, rowY, inputW, reseed ? src.folder : folder.getValue());
+        file = box(inputX, rowY + rowStep, inputW, reseed ? src.file : file.getValue());
+        breakLine = box(inputX, rowY + rowStep * 2, inputW,
+                reseed ? (src.pageBreakLine == null ? "" : src.pageBreakLine) : breakLine.getValue());
+        lines = box(inputX, rowY + rowStep * 3, Math.min(60, inputW),
+                reseed ? Integer.toString(src.linesPerPage) : lines.getValue());
+        chars = box(inputX, rowY + rowStep * 4, Math.min(60, inputW),
+                reseed ? Integer.toString(src.charsPerPage) : chars.getValue());
+        pages = box(inputX, rowY + rowStep * 5, Math.min(60, inputW),
+                reseed ? Integer.toString(src.maxPages) : pages.getValue());
         maxMb = box(inputX, rowY + rowStep * 6, Math.min(60, inputW),
-                Long.toString(Math.max(1, c.maxFileBytes / (1024L * 1024L))));
+                reseed ? Long.toString(Math.max(1, src.maxFileBytes / (1024L * 1024L))) : maxMb.getValue());
+
+        // 开关值同样只在第一次 / 恢复默认时从配置读
+        if (reseed) {
+            displayPaging = src.displayPaging;
+            markdown = src.markdown;
+            longOnly = src.longClipboardOnly;
+            recursive = src.recursive;
+            debug = src.debug;
+        }
 
         int ty = rowY;
         toggle(col2, ty, "按显示宽度分页", displayPaging, v -> displayPaging = v);
@@ -78,19 +115,22 @@ public class SettingsScreen extends Screen {
         toggle(col2, ty + rowStep * 3, "文本库平铺（递归）", recursive, v -> recursive = v);
         toggle(col2, ty + rowStep * 4, "调试日志", debug, v -> debug = v);
 
+        int bw = narrow ? 72 : 88;
+        int gap = 4;
+        int x0 = Math.max(8, (this.width - (bw * 3 + gap * 2)) / 2);
         int bottom = this.height - 30;
         addRenderableWidget(Button.builder(Component.literal("保存"), b -> save())
-                .pos(this.width / 2 - 92, bottom).size(88, 20).build());
+                .pos(x0 + bw + gap, bottom).size(bw, 20).build());
         addRenderableWidget(Button.builder(Component.literal("取消"), b -> back())
-                .pos(this.width / 2 + 4, bottom).size(88, 20).build());
+                .pos(x0 + (bw + gap) * 2, bottom).size(bw, 20).build());
         addRenderableWidget(Button.builder(Component.literal("恢复默认"), b -> {
-            InkwellConfig.get().resetToDefaults();
+            useDefaults = true;
             rebuildWidgets();
-        }).pos(MARGIN, bottom).size(88, 20).build());
+        }).pos(x0, bottom).size(bw, 20).build());
     }
 
     private EditBox box(int x, int y, int w, String value) {
-        EditBox e = new EditBox(this.font, x, y, w, 18, Component.literal(""));
+        EditBox e = new EditBox(this.font, x, y, w, rowH, Component.literal(""));
         e.setValue(value == null ? "" : value);
         addRenderableWidget(e);
         return e;
@@ -100,7 +140,7 @@ public class SettingsScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal(label + (value ? "：开" : "：关")), b -> {
             setter.accept(!value);
             rebuildWidgets();
-        }).pos(x, y).size(toggleW, Math.max(18, rowStep - 2)).build());
+        }).pos(x, y).size(toggleW, rowH).build());
     }
 
     private void save() {
@@ -123,6 +163,10 @@ public class SettingsScreen extends Screen {
         Inkwell.log("设置已保存：目录=" + c.folder + "，每页 " + c.linesPerPage + " 行 / " + c.charsPerPage
                 + " 字，最多 " + c.maxPages + " 页");
         back();
+        // 从文本库进来的：目录 / 递归可能变了，让它重新读一遍
+        if (parent instanceof TextLibraryScreen lib) {
+            lib.reloadConfig();
+        }
     }
 
     private static String blankTo(String s, String def) {
@@ -145,7 +189,7 @@ public class SettingsScreen extends Screen {
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partial) {
         super.extractRenderState(g, mouseX, mouseY, partial);
         try {
-            g.text(this.font, Component.literal("Inkwell 设置"), MARGIN, 14, 0xFFFFFFFF);
+            g.text(this.font, Component.literal("Inkwell 设置"), labelX, 14, 0xFFFFFFFF);
 
             label(g, rowY, "文件目录");
             label(g, rowY + rowStep, "默认文件");
@@ -159,7 +203,7 @@ public class SettingsScreen extends Screen {
             int hintY = rowY + rowStep * 7 + 6;
             if (hintY + 10 < this.height - 34) {
                 g.text(this.font, Component.literal("保存后立即生效，同时写回 config/inkwell.properties"),
-                        MARGIN, hintY, 0xFF909090);
+                        labelX, hintY, 0xFF909090);
             }
         } catch (Throwable t) {
             Inkwell.log("设置界面绘制失败：" + t);
@@ -167,6 +211,6 @@ public class SettingsScreen extends Screen {
     }
 
     private void label(GuiGraphicsExtractor g, int y, String text) {
-        g.text(this.font, Component.literal(text), MARGIN, y + 5, 0xFFB0B0B0);
+        g.text(this.font, Component.literal(text), labelX, y + 5, 0xFFB0B0B0);
     }
 }
